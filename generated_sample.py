@@ -5,12 +5,14 @@ import codecs
 import tensorflow as tf
 import data
 import shutil
-import util
+import utils
 import re
-from  result_evaluate import Evaluate
+from result_evaluate import Evaluate
 import nltk
 from nltk.translate.bleu_score import corpus_bleu
+
 FLAGS = tf.app.flags.FLAGS
+
 
 class Generated_sample(object):
     def __init__(self, model, vocab, batcher, sess):
@@ -20,21 +22,24 @@ class Generated_sample(object):
         self.batches = batcher.get_batches(mode='train')
         self.test_batches = batcher.get_batches(mode='test')
         self.current_batch = 0
-        if not os.path.exists("discriminator_train"): os.mkdir("discriminator_train")
-        if not os.path.exists("discriminator_test"): os.mkdir("discriminator_test")
-        self.train_sample_whole_positive_dir = os.path.join("discriminator_train","positive")
-        self.train_sample_whole_negative_dir = os.path.join("discriminator_train","negative")
+        if not os.path.exists("discriminator_train"):
+            os.mkdir("discriminator_train")
+        if not os.path.exists("discriminator_test"):
+            os.mkdir("discriminator_test")
+        self.train_sample_whole_positive_dir = os.path.join("discriminator_train", "positive")
+        self.train_sample_whole_negative_dir = os.path.join("discriminator_train", "negative")
         self.test_sample_whole_positive_dir = os.path.join("discriminator_test", "positive")
         self.test_sample_whole_negative_dir = os.path.join("discriminator_test", "negative")
-        if not os.path.exists(self.train_sample_whole_positive_dir): os.mkdir(self.train_sample_whole_positive_dir)
-        if not os.path.exists(self.train_sample_whole_negative_dir): os.mkdir(self.train_sample_whole_negative_dir)
-        if not os.path.exists(self.test_sample_whole_positive_dir): os.mkdir(self.test_sample_whole_positive_dir)
-        if not os.path.exists(self.test_sample_whole_negative_dir): os.mkdir(self.test_sample_whole_negative_dir)
+        if not os.path.exists(self.train_sample_whole_positive_dir):
+            os.mkdir(self.train_sample_whole_positive_dir)
+        if not os.path.exists(self.train_sample_whole_negative_dir):
+            os.mkdir(self.train_sample_whole_negative_dir)
+        if not os.path.exists(self.test_sample_whole_positive_dir):
+            os.mkdir(self.test_sample_whole_positive_dir)
+        if not os.path.exists(self.test_sample_whole_negative_dir):
+            os.mkdir(self.test_sample_whole_negative_dir)
         self.temp_positive_dir = ""
-        self.temp_negative_dir =""
-        #if not os.path.exists(self.temp_positive_dir): os.mkdir(self.temp_positive_dir)
-        #if not os.path.exists(self.temp_negative_dir): os.mkdir(self.temp_negative_dir)
-
+        self.temp_negative_dir = ""
 
     def generator_sample_example(self, positive_dir, negative_dir, num_batch):
 
@@ -49,10 +54,8 @@ class Generated_sample(object):
         if not os.path.exists(self.temp_negative_dir): os.mkdir(self.temp_negative_dir)
         counter = 0
 
-
         for i in range(num_batch):
             decode_result = self._model.run_eval_given_step(self._sess, self.batches[self.current_batch])
-
 
             for i in range(FLAGS.batch_size):
 
@@ -70,12 +73,12 @@ class Generated_sample(object):
                     except ValueError:
                         decoded_words = decoded_words
 
-                    if len(decoded_words)<2:
+                    if len(decoded_words) < 2:
                         continue
 
-                    if len(decoded_words_all)>0:
-                        new_set1 =set(decoded_words_all[len(decoded_words_all)-1].split())
-                        new_set2= set(decoded_words)
+                    if len(decoded_words_all) > 0:
+                        new_set1 = set(decoded_words_all[len(decoded_words_all) - 1].split())
+                        new_set2 = set(decoded_words)
                         if len(new_set1 & new_set2) > 0.5 * len(new_set2):
                             continue
                     decoded_output = ' '.join(decoded_words).strip()  # single string
@@ -94,13 +97,12 @@ class Generated_sample(object):
                 self.write_negtive_temp_to_json(original_review, decoded_words_all, counter)
 
                 counter += 1  # this is how many examples we've decoded
-            self.current_batch +=1
+            self.current_batch += 1
             if self.current_batch >= len(self.batches):
                 self.current_batch = 0
-        
+
         eva = Evaluate()
         eva.diversity_evaluate(negative_dir + "/*")
-
 
     def generator_test_sample_example(self, positive_dir, negative_dir, num_batch):
 
@@ -118,16 +120,14 @@ class Generated_sample(object):
         step = 0
         list_hop = []
         list_ref = []
-        
 
         while step < num_batch:
-            
+
             batch = batches[step]
             step += 1
 
             decode_result = self._model.run_eval_given_step(self._sess, batch)
-            #decode_result = self._model.run_eval_given_step(self._sess, self.batches[self.current_batch])
-
+            # decode_result = self._model.run_eval_given_step(self._sess, self.batches[self.current_batch])
 
             for i in range(FLAGS.batch_size):
 
@@ -145,12 +145,12 @@ class Generated_sample(object):
                     except ValueError:
                         decoded_words = decoded_words
 
-                    if len(decoded_words)<2:
+                    if len(decoded_words) < 2:
                         continue
 
-                    if len(decoded_words_all)>0:
-                        new_set1 =set(decoded_words_all[len(decoded_words_all)-1].split())
-                        new_set2= set(decoded_words)
+                    if len(decoded_words_all) > 0:
+                        new_set1 = set(decoded_words_all[len(decoded_words_all) - 1].split())
+                        new_set2 = set(decoded_words)
                         if len(new_set1 & new_set2) > 0.5 * len(new_set2):
                             continue
                     decoded_output = ' '.join(decoded_words).strip()  # single string
@@ -174,12 +174,11 @@ class Generated_sample(object):
             '''self.current_batch +=1
             if self.current_batch >= len(self.batches):
                 self.current_batch = 0'''
-        
+
         bleu_score = corpus_bleu(list_ref, list_hop)
-        tf.logging.info('bleu: '  + str(bleu_score))
+        tf.logging.info('bleu: ' + str(bleu_score))
         eva = Evaluate()
         eva.diversity_evaluate(negative_dir + "/*")
-
 
     def generator_test_max_example(self, positive_dir, negative_dir, num_batch):
 
@@ -199,13 +198,12 @@ class Generated_sample(object):
         list_ref = []
 
         while step < num_batch:
-            
+
             batch = batches[step]
             step += 1
 
             decode_result = self._model.max_generator(self._sess, batch)
-            #decode_result = self._model.run_eval_given_step(self._sess, self.batches[self.current_batch])
-
+            # decode_result = self._model.run_eval_given_step(self._sess, self.batches[self.current_batch])
 
             for i in range(FLAGS.batch_size):
 
@@ -223,12 +221,12 @@ class Generated_sample(object):
                     except ValueError:
                         decoded_words = decoded_words
 
-                    if len(decoded_words)<2:
+                    if len(decoded_words) < 2:
                         continue
 
-                    if len(decoded_words_all)>0:
-                        new_set1 =set(decoded_words_all[len(decoded_words_all)-1].split())
-                        new_set2= set(decoded_words)
+                    if len(decoded_words_all) > 0:
+                        new_set1 = set(decoded_words_all[len(decoded_words_all) - 1].split())
+                        new_set2 = set(decoded_words)
                         if len(new_set1 & new_set2) > 0.5 * len(new_set2):
                             continue
                     decoded_output = ' '.join(decoded_words).strip()  # single string
@@ -252,10 +250,9 @@ class Generated_sample(object):
             '''self.current_batch +=1
             if self.current_batch >= len(self.batches):
                 self.current_batch = 0'''
-        
-        
+
         bleu_score = corpus_bleu(list_ref, list_hop)
-        tf.logging.info('bleu: '  + str(bleu_score))
+        tf.logging.info('bleu: ' + str(bleu_score))
         eva = Evaluate()
         eva.diversity_evaluate(negative_dir + "/*")
 
@@ -272,10 +269,8 @@ class Generated_sample(object):
         if not os.path.exists(self.temp_negative_dir): os.mkdir(self.temp_negative_dir)
         counter = 0
 
-
         for i in range(num_batch):
             decode_result = self._model.max_generator(self._sess, self.batches[self.current_batch])
-
 
             for i in range(FLAGS.batch_size):
 
@@ -292,12 +287,12 @@ class Generated_sample(object):
                         decoded_words = decoded_words[:fst_stop_idx]
                     except ValueError:
                         decoded_words = decoded_words
-                    if len(decoded_words)<2:
+                    if len(decoded_words) < 2:
                         continue
 
-                    if len(decoded_words_all)>0:
-                        new_set1 =set(decoded_words_all[len(decoded_words_all)-1].split())
-                        new_set2= set(decoded_words)
+                    if len(decoded_words_all) > 0:
+                        new_set1 = set(decoded_words_all[len(decoded_words_all) - 1].split())
+                        new_set2 = set(decoded_words)
                         if len(new_set1 & new_set2) > 0.5 * len(new_set2):
                             continue
                     decoded_output = ' '.join(decoded_words).strip()  # single string
@@ -316,7 +311,7 @@ class Generated_sample(object):
                 self.write_negtive_temp_to_json(original_review, decoded_words_all, counter)
 
                 counter += 1  # this is how many examples we've decoded
-            self.current_batch +=1
+            self.current_batch += 1
             if self.current_batch >= len(self.batches):
                 self.current_batch = 0
 
@@ -341,7 +336,6 @@ class Generated_sample(object):
         write_negative_file.write(string_ + "\n")
         write_negative_file.close()
         write_positive_file.close()
-
 
     def write_negtive_to_json(self, positive, negative, counter, positive_dir, negtive_dir):
         positive_file = os.path.join(positive_dir, "%06d.txt" % (counter // 1000))
@@ -371,7 +365,7 @@ class Generated_sample(object):
         batches = self.batches
 
         while step < 1000:
-            
+
             batch = batches[step]
             step += 1
 
@@ -392,15 +386,15 @@ class Generated_sample(object):
                     except ValueError:
                         decoded_words = decoded_words
 
-                    if len(decoded_words)<2:
+                    if len(decoded_words) < 2:
                         continue
 
-                    if len(decoded_words_all)>0:
-                        new_set1 =set(decoded_words_all[len(decoded_words_all)-1].split())
-                        new_set2= set(decoded_words)
+                    if len(decoded_words_all) > 0:
+                        new_set1 = set(decoded_words_all[len(decoded_words_all) - 1].split())
+                        new_set2 = set(decoded_words)
                         if len(new_set1 & new_set2) > 0.5 * len(new_set2):
                             continue
-                    if decoded_words[-1] !='.' and decoded_words[-1] !='!' and decoded_words[-1] !='?':
+                    if decoded_words[-1] != '.' and decoded_words[-1] != '!' and decoded_words[-1] != '?':
                         decoded_words.append('.')
                     decoded_output = ' '.join(decoded_words).strip()  # single string
                     decoded_words_all.append(decoded_output)
@@ -417,10 +411,10 @@ class Generated_sample(object):
                 decoded_words_all, _ = re.subn(r"(! ){2,}", "", decoded_words_all)
                 decoded_words_all, _ = re.subn(r"(\. ){2,}", "", decoded_words_all)
 
-                self.write_negtive_to_json(original_review, decoded_words_all, counter, self.train_sample_whole_positive_dir, self.train_sample_whole_negative_dir)
+                self.write_negtive_to_json(original_review, decoded_words_all, counter,
+                                           self.train_sample_whole_positive_dir, self.train_sample_whole_negative_dir)
 
                 counter += 1  # this is how many examples we've decoded
-
 
     def generator_test_negative_example(self):
 
@@ -434,14 +428,13 @@ class Generated_sample(object):
             step += 1
             batch = batches[step]
 
-            decode_result =self._model.run_eval_given_step(self._sess, batch)
+            decode_result = self._model.run_eval_given_step(self._sess, batch)
 
             for i in range(FLAGS.batch_size):
                 decoded_words_all = []
                 original_review = batch.original_review_output[i]  # string
 
                 for j in range(FLAGS.max_dec_sen_num):
-
 
                     output_ids = [int(t) for t in decode_result['generated'][i][j]][1:]
                     decoded_words = data.outputids2words(output_ids, self._vocab, None)
@@ -452,15 +445,15 @@ class Generated_sample(object):
                     except ValueError:
                         decoded_words = decoded_words
 
-                    if len(decoded_words)<2:
+                    if len(decoded_words) < 2:
                         continue
 
-                    if len(decoded_words_all)>0:
-                        new_set1 =set(decoded_words_all[len(decoded_words_all)-1].split())
-                        new_set2= set(decoded_words)
+                    if len(decoded_words_all) > 0:
+                        new_set1 = set(decoded_words_all[len(decoded_words_all) - 1].split())
+                        new_set2 = set(decoded_words)
                         if len(new_set1 & new_set2) > 0.5 * len(new_set2):
                             continue
-                    if decoded_words[-1] !='.' and decoded_words[-1] !='!' and decoded_words[-1] !='?':
+                    if decoded_words[-1] != '.' and decoded_words[-1] != '!' and decoded_words[-1] != '?':
                         decoded_words.append('.')
                     decoded_output = ' '.join(decoded_words).strip()  # single string
                     decoded_words_all.append(decoded_output)
@@ -476,7 +469,8 @@ class Generated_sample(object):
                 decoded_words_all = decoded_words_all.replace("[UNK]", "")
                 decoded_words_all, _ = re.subn(r"(! ){2,}", "", decoded_words_all)
                 decoded_words_all, _ = re.subn(r"(\. ){2,}", "", decoded_words_all)
-                self.write_negtive_to_json(original_review, decoded_words_all, counter, self.test_sample_whole_positive_dir,self.test_sample_whole_negative_dir)
+                self.write_negtive_to_json(original_review, decoded_words_all, counter,
+                                           self.test_sample_whole_positive_dir, self.test_sample_whole_negative_dir)
 
                 counter += 1  # this is how many examples we've decoded
 
@@ -485,35 +479,33 @@ class Generated_sample(object):
         counter = 0
         step = 0
 
-
         t0 = time.time()
         batches = self.test_batches
         list_hop = []
         list_ref = []
 
-        #tf.logging.info(len(batches))
+        # tf.logging.info(len(batches))
 
-        while step <  100:
-            #tf.logging.info(step)
-
+        while step < 100:
+            # tf.logging.info(step)
 
             batch = batches[step]
             step += 1
 
             decode_result = self._model.run_eval_given_step(self._sess, batch)
 
-            #tf.logging.info(step)
+            # tf.logging.info(step)
 
             for i in range(FLAGS.batch_size):
 
-                #tf.logging.info("i: " + str(i))
+                # tf.logging.info("i: " + str(i))
 
                 decoded_words_all = []
                 original_review = batch.original_review_output[i]  # string
 
                 for j in range(FLAGS.max_dec_sen_num):
 
-                    #tf.logging.info("j: " + str(j))
+                    # tf.logging.info("j: " + str(j))
 
                     output_ids = [int(t) for t in decode_result['generated'][i][j]][1:]
                     decoded_words = data.outputids2words(output_ids, self._vocab, None)
@@ -524,7 +516,7 @@ class Generated_sample(object):
                     except ValueError:
                         decoded_words = decoded_words
 
-                    if len(decoded_words)<2:
+                    if len(decoded_words) < 2:
                         continue
 
                     '''if j>0:
@@ -532,12 +524,12 @@ class Generated_sample(object):
                         new_set2= set(decoded_words)
                         if len(new_set1 & new_set2) > 0.5 * len(new_set1):
                             continue'''
-                    if len(decoded_words_all)>0:
-                        new_set1 =set(decoded_words_all[len(decoded_words_all)-1].split())
-                        new_set2= set(decoded_words)
+                    if len(decoded_words_all) > 0:
+                        new_set1 = set(decoded_words_all[len(decoded_words_all) - 1].split())
+                        new_set2 = set(decoded_words)
                         if len(new_set1 & new_set2) > 0.5 * len(new_set2):
                             continue
-                    if decoded_words[-1] !='.' and decoded_words[-1] !='!' and decoded_words[-1] !='?':
+                    if decoded_words[-1] != '.' and decoded_words[-1] != '!' and decoded_words[-1] != '?':
                         decoded_words.append('.')
 
                     decoded_output = ' '.join(decoded_words).strip()  # single string
@@ -552,14 +544,13 @@ class Generated_sample(object):
                 decoded_words_all = decoded_words_all.replace("[UNK] ", "")
                 decoded_words_all = decoded_words_all.replace("[UNK]", "")
                 decoded_words_all, _ = re.subn(r"(! ){2,}", "", decoded_words_all)
-                decoded_words_all,_ = re.subn(r"(\. ){2,}", "", decoded_words_all)
-
+                decoded_words_all, _ = re.subn(r"(\. ){2,}", "", decoded_words_all)
 
                 list_hop.append(decoded_words_all)
                 list_ref.append(original_review)
-                #self.write_negtive_to_json(original_review, decoded_output, counter)
+                # self.write_negtive_to_json(original_review, decoded_output, counter)
 
-                #counter += 1  # this is how many examples we've decoded
+                # counter += 1  # this is how many examples we've decoded
         '''file_temp = open(train_step+"_temp_result.txt",'w')
         for hop in list_hop:
             file_temp.write(hop+"\n")
@@ -579,12 +570,9 @@ class Generated_sample(object):
 
                 new_ref_ref.append(new_ref_list)'''
 
-        #print (new_sen_list)
+        # print (new_sen_list)
 
-
-
-        #bleu_score = corpus_bleu(new_ref_ref, new_sen_list)
+        # bleu_score = corpus_bleu(new_ref_ref, new_sen_list)
         t1 = time.time()
         tf.logging.info('seconds for test generator: %.3f ', (t1 - t0))
         return 0
-

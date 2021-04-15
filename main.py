@@ -69,7 +69,7 @@ tf.app.flags.DEFINE_integer('max_dec_steps', 40, 'max timesteps of decoder (max 
 # Hyperparameters
 tf.app.flags.DEFINE_integer('hidden_dim', 256, 'dimension of RNN hidden states')  # for discriminator and generator
 tf.app.flags.DEFINE_integer('emb_dim', 128, 'dimension of word embeddings')  # for discriminator and generator
-tf.app.flags.DEFINE_integer('batch_size', 64, 'minibatch size')  # for discriminator and generator
+tf.app.flags.DEFINE_integer('batch_size', 32, 'minibatch size')  # for discriminator and generator
 tf.app.flags.DEFINE_integer('max_enc_steps', 50, 'max timesteps of encoder (max source text tokens)')  # for generator
 tf.app.flags.DEFINE_integer('min_dec_steps', 35, 'Minimum sequence length of generated summary. '
                                                  'Applies only for beam search decoding mode')  # for generator
@@ -127,29 +127,24 @@ def main(unused_argv):
 
     # Create a batcher object that will create minibatches of data
     batcher = GenBatcher(vocab, hps_generator)
-
     tf.set_random_seed(111)  # a seed value for randomness
 
     if hps_generator.mode == 'train_generator':
         print("Start pre-training generator ......")
         model = Generator(hps_generator, vocab)
-
         sess_ge, saver_ge, train_dir_ge = utils.setup_model(model, mode='train_generator')
         generated = Generated_sample(model, vocab, batcher, sess_ge)
         print("Start pre-training generator......")  # this is an infinite loop until
         utils.run_pre_train_generator(model, batcher, 10, sess_ge, saver_ge, train_dir_ge)
-
         print("Generating negative examples......")
         generated.generator_train_negative_example()
         generated.generator_test_negative_example()
 
     elif hps_generator.mode == 'train_discriminator':
-        print("Start pre-training......")
+        print("Start pre-training discriminator ......")
         model = Generator(hps_generator, vocab)
-
-        sess_ge, saver_ge, train_dir_ge = utils.setup_model(model, mode='train_discriminator')
-
-        # util.load_ckpt(saver_ge, sess_ge, ckpt_dir="train-generator")
+        sess_ge, saver_ge, train_dir_ge = utils.setup_model(model, mode='train_generator')
+        utils.load_ckpt(saver_ge, sess_ge, ckpt_dir="train_generator")
 
         model_dis = Discriminator(hps_discriminator, vocab)
         dis_batcher = DisBatcher(hps_discriminator, vocab, "discriminator_train/positive/*",

@@ -16,8 +16,7 @@
 
 """This file contains code to process data into batches"""
 
-import queue
-from random import shuffle
+import random
 import codecs
 import json
 import glob
@@ -145,26 +144,26 @@ class Batch(object):
         self.init_decoder_seq(example_list, hps)  # initialize the input to the encoder
 
     def init_decoder_seq(self, example_list, hps):
-
         for ex in example_list:
             ex.pad_decoder_inp_targ(hps.max_enc_seq_len, hps.max_enc_sen_num, self.pad_id)
 
         # Initialize the numpy arrays.
-        # Note: our decoder inputs and targets must be the same length for each batch (second dimension = max_dec_steps) because we do not use a dynamic_rnn for decoding. However I believe this is possible, or will soon be possible, with Tensorflow 1.0, in which case it may be best to upgrade to that.
+        # Note: our decoder inputs and targets must be the same length for each batch (second dimension = max_dec_steps)
+        # because we do not use a dynamic_rnn for decoding. However I believe this is possible,
+        # or will soon be possible, with Tensorflow 1.0, in which case it may be best to upgrade to that.
         self.dec_batch = np.zeros((hps.batch_size, hps.max_enc_sen_num, hps.max_enc_seq_len), dtype=np.int32)
         self.target_batch = np.zeros((hps.batch_size, hps.max_enc_sen_num, hps.max_enc_seq_len), dtype=np.int32)
-        self.dec_padding_mask = np.zeros((hps.batch_size * hps.max_enc_sen_num, hps.max_enc_seq_len),
-                                         dtype=np.float32)
+        self.dec_padding_mask = np.zeros((hps.batch_size * hps.max_enc_sen_num, hps.max_enc_seq_len), dtype=np.float32)
         self.labels = np.zeros((hps.batch_size, hps.max_enc_sen_num, hps.max_enc_seq_len), dtype=np.int32)
         self.dec_sen_lens = np.zeros((hps.batch_size, hps.max_enc_sen_num), dtype=np.int32)
-        self.dec_lens = np.zeros((hps.batch_size), dtype=np.int32)
-        self.review_sentenc_orig = []
+        self.dec_lens = np.zeros(hps.batch_size, dtype=np.int32)
+        self.review_sentence_orig = []
 
         for i, ex in enumerate(example_list):
             # self.new_review_text = []
             self.labels[i] = np.array(
                 [[ex.label for k in range(hps.max_enc_seq_len)] for j in range(hps.max_enc_sen_num)])
-            self.review_sentenc_orig.append([sen for sen in ex.original_reivew])
+            self.review_sentence_orig.append([sen for sen in ex.original_reivew])
 
             self.dec_lens[i] = ex.dec_len
             self.dec_batch[i, :, :] = np.array(ex.dec_input)
@@ -172,8 +171,7 @@ class Batch(object):
             for j in range(len(ex.dec_sen_len)):
                 self.dec_sen_lens[i][j] = ex.dec_sen_len[j]
 
-        self.target_batch = np.reshape(self.target_batch,
-                                       [hps.batch_size * hps.max_enc_sen_num, hps.max_enc_seq_len])
+        self.target_batch = np.reshape(self.target_batch, [hps.batch_size * hps.max_enc_sen_num, hps.max_enc_seq_len])
 
         for j in range(len(self.target_batch)):
             for k in range(len(self.target_batch[j])):
@@ -186,37 +184,33 @@ class Batch(object):
 
 
 class DisBatcher(object):
-    def __init__(self, hps, vocab, train_path_positvie, train_path_negetive, test_path_positive, test_path_negetive):
+    def __init__(self, hps, vocab, train_path_positive, train_path_negative, test_path_positive, test_path_negative):
         self._vocab = vocab
         self._hps = hps
-        self._train_path_positive = train_path_positvie
-        self._train_path_negetive = train_path_negetive
+        self._train_path_positive = train_path_positive
+        self._train_path_negative = train_path_negative
         self._test_path_positive = test_path_positive
-        self._test_path_negetive = test_path_negetive
+        self._test_path_negative = test_path_negative
 
         self.train_queue = self.fill_example_queue(self._train_path_positive)
-        self.train_queue += self.fill_example_queue(self._train_path_negetive)
-
+        self.train_queue += self.fill_example_queue(self._train_path_negative)
         self.test_queue = self.fill_example_queue(self._test_path_positive)
-        self.test_queue += self.fill_example_queue(self._test_path_negetive)
-        # shuffle(self.all_data)
+        self.test_queue += self.fill_example_queue(self._test_path_negative)
 
-        # self.train_queue = self.all_data[:int(0.9*len(self.all_data))]
-        # self.test_queue  = self.all_data[int(0.9*len(self.all_data)):]
+        self.train_batch = self.create_batches(mode="train", shuffle=True)
+        self.test_batch = self.create_batches(mode="test", shuffle=False)
 
-        self.train_batch = self.create_batches(mode="train", shuffleis=True)
-        self.test_batch = self.create_batches(mode="test", shuffleis=False)
-
-    def create_batches(self, mode="train", shuffleis=True):
-
+    def create_batches(self, mode="train", shuffle=True):
         all_batch = []
 
         if mode == "train":
             num_batches = int(len(self.train_queue) / self._hps.batch_size)
-            if shuffleis:
-                shuffle(self.train_queue)
+            if shuffle:
+                random.shuffle(self.train_queue)
         elif mode == 'test':
             num_batches = int(len(self.test_queue) / self._hps.batch_size)
+        else:
+            raise NotImplementedError
 
         for i in range(0, num_batches):
             batch = []
@@ -224,21 +218,17 @@ class DisBatcher(object):
                 batch += (self.train_queue[i * self._hps.batch_size:i * self._hps.batch_size + self._hps.batch_size])
             elif mode == 'test':
                 batch += (self.test_queue[i * self._hps.batch_size:i * self._hps.batch_size + self._hps.batch_size])
-
             all_batch.append(Batch(batch, self._hps, self._vocab))
         return all_batch
 
     def get_batches(self, mode="train"):
-
         if mode == "train":
-            shuffle(self.train_batch)
+            random.shuffle(self.train_batch)
             return self.train_batch
-
         elif mode == 'test':
             return self.test_batch
 
     def fill_example_queue(self, data_path):
-
         new_queue = []
 
         filelist = glob.glob(data_path)  # get the list of datafiles
@@ -248,7 +238,8 @@ class DisBatcher(object):
             reader = codecs.open(f, 'r', 'utf-8')
             while True:
                 string_ = reader.readline()
-                if not string_: break
+                if not string_:
+                    break
                 dict_example = json.loads(string_)
                 review = dict_example["example"]
                 if review.strip() == "":
